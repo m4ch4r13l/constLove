@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nuestra Constelación</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Plus+Jakarta+Sans:wght@300;400;600&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      overflow: hidden;
+      background: #04050d;
+      color: #f8fafc;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      user-select: none;
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* HUD Superior */
+    .header-ui {
+      position: fixed;
+      top: 28px;
+      left: 32px;
+      z-index: 10;
+      pointer-events: none;
+      text-shadow: 0 2px 20px rgba(0,0,0,0.8);
+    }
+    .header-ui h1 {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(1.4rem, 3vw, 2.2rem);
+      letter-spacing: 0.12em;
+      background: linear-gradient(135deg, #fff 0%, #c7d2fe 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-ui p {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* Controles inferiores */
+    .bottom-bar {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(12px);
+      padding: 10px 20px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .hint-text {
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      white-space: nowrap;
+    }
+    .btn-pill {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.25s ease;
+    }
+    .btn-pill:hover {
+      background: rgba(255, 255, 255, 0.22);
+      transform: translateY(-1px);
+    }
+
+    /* Modal de Recuerdo */
+    .memory-card {
+      position: fixed;
+      right: 32px;
+      top: 50%;
+      transform: translateY(-50%) translateX(120%);
+      width: min(380px, calc(100vw - 48px));
+      background: rgba(10, 14, 28, 0.78);
+      backdrop-filter: blur(18px);
+      border: 1px solid rgba(199, 210, 254, 0.25);
+      border-radius: 20px;
+      padding: 28px;
+      z-index: 20;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 30px rgba(129, 140, 248, 0.15);
+      transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .memory-card.active {
+      transform: translateY(-50%) translateX(0);
+    }
+    .memory-date {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: #a5b4fc;
+      margin-bottom: 6px;
+    }
+    .memory-title {
+      font-family: 'Cinzel', serif;
+      font-size: 1.4rem;
+      margin-bottom: 14px;
+      color: #ffffff;
+    }
+    .memory-text {
+      font-size: 0.95rem;
+      line-height: 1.65;
+      color: #e2e8f0;
+      font-weight: 300;
+    }
+    .memory-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 22px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .close-btn {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      background: none;
+      border: none;
+      color: #94a3b8;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+    .close-btn:hover { color: #fff; }
+
+    /* Botón y Panel Personalizador */
+    .edit-toggle {
+      position: fixed;
+      top: 28px;
+      right: 32px;
+      z-index: 30;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #e2e8f0;
+      padding: 8px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 0.82rem;
+    }
+    .customizer-panel {
+      position: fixed;
+      top: 75px;
+      right: 32px;
+      width: min(400px, calc(100vw - 48px));
+      max-height: calc(100vh - 110px);
+      overflow-y: auto;
+      background: rgba(9, 13, 26, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 16px;
+      padding: 20px;
+      z-index: 35;
+      display: none;
+    }
+    .customizer-panel.open { display: block; }
+    .customizer-panel h3 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.05rem;
+      margin-bottom: 14px;
+      color: #c7d2fe;
+    }
+    .field-group { margin-bottom: 12px; }
+    .field-group label {
+      display: block;
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-bottom: 4px;
+    }
+    .field-group input, .field-group textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+    .star-editor-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 10px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    .share-box {
+      margin-top: 12px;
+      display: flex;
+      gap: 8px;
+    }
+
+    @media (max-width: 640px) {
+      .memory-card {
+        top: auto;
+        bottom: 80px;
+        right: 16px;
+        left: 16px;
+        width: auto;
+        transform: translateY(140%);
+      }
+      .memory-card.active {
+        transform: translateY(0);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <!-- Título Principal -->
+  <div class="header-ui">
+    <h1 id="ui-constellation-name">Constelación de Nosotros</h1>
+    <p id="ui-subtitle">14 de Febrero • Bajo el mismo cielo</p>
+  </div>
+
+  <!-- Botón Modo Personalizar -->
+  <button class="edit-toggle" id="btn-toggle-editor">⚙️ Personalizar</button>
+
+  <!-- Panel Personalizador -->
+  <div class="customizer-panel" id="editor-panel">
+    <h3>✨ Personalizar Regalo</h3>
+    <div class="field-group">
+      <label>Título de la Constelación</label>
+      <input type="text" id="inp-title" />
+    </div>
+    <div class="field-group">
+      <label>Subtítulo / Fecha Especial</label>
+      <input type="text" id="inp-subtitle" />
+    </div>
+    <div style="display:flex; gap:10px;">
+      <div class="field-group" style="flex:1;">
+        <label>Color Estrella</label>
+        <input type="color" id="inp-star-color" style="height:36px; padding:2px;" />
+      </div>
+      <div class="field-group" style="flex:1;">
+        <label>Color Nebulosa</label>
+        <input type="color" id="inp-nebula-color" style="height:36px; padding:2px;" />
+      </div>
+    </div>
+
+    <h3 style="margin-top:14px;">Estrellas y Recuerdos</h3>
+    <div id="stars-editor-list"></div>
+
+    <button class="btn-pill" id="btn-apply-changes" style="width:100%; background:#4f46e5; border-color:#6366f1; padding:10px; font-weight:600;">
+      Aplicar y Generar Enlace Regalo
+    </button>
+    <div class="share-box">
+      <input type="text" id="share-url-output" readonly placeholder="Aquí aparecerá tu link único..." />
+      <button class="btn-pill" id="btn-copy-url">Copiar</button>
+    </div>
+  </div>
+
+  <!-- Tarjeta de Recuerdo -->
+  <div class="memory-card" id="memory-card">
+    <button class="close-btn" id="btn-close-card">✕</button>
+    <div class="memory-date" id="card-date">Estrella I</div>
+    <h2 class="memory-title" id="card-title">Título del Recuerdo</h2>
+    <p class="memory-text" id="card-text">Texto del recuerdo...</p>
+    <div class="memory-nav">
+      <button class="btn-pill" id="btn-prev-star">← Anterior</button>
+      <span id="card-counter" style="font-size:0.78rem; color:#94a3b8;">1 / 7</span>
+      <button class="btn-pill" id="btn-next-star">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- Barra Inferior -->
+  <div class="bottom-bar">
+    <span class="hint-text">Toca una estrella brillante</span>
+    <button class="btn-pill" id="btn-tour">▶ Recorrido</button>
+    <button class="btn-pill" id="btn-reset-cam">Vista General</button>
+  </div>
+
+  <!-- Import Map para Three.js -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // ==========================================
+    // 1. CONFIGURACIÓN BASE (Editable)
+    // ==========================================
+    let CONFIG = {
+      title: "Constelación de Nosotros",
+      subtitle: "El cielo donde todo comenzó",
+      starColor: "#ffd6a5",
+      nebulaColor: "#4338ca",
+      stars: [
+        { date: "Estrella I • El Inicio", title: "El día que te conocí", text: "Entre millones de personas y coincidencias, nuestros caminos cruzaron. Desde esa primera plática supe que había algo distinto en ti." },
+        { date: "Estrella II • Primera Cita", title: "Las horas pasaron volando", text: "No queríamos que terminara el día. Esa sensación de estar exactamente donde debía estar se quedó conmigo para siempre." },
+        { date: "Estrella III • Nuestra Canción", title: "Sintonía perfecta", text: "Cada vez que suena esa melodía vuelvo directo a ese momento contigo, riéndonos sin importar nada alrededor." },
+        { date: "Estrella IV • Complicidad", title: "Nuestras aventuras", text: "Contigo hasta los planes más sencillos se convierten en mis recuerdos favoritos. Gracias por ser mi mejor equipo." },
+        { date: "Estrella V • Tu Sonrisa", title: "Mi lugar seguro", text: "En los días difíciles, basta verte sonreír o escuchar tu voz para que todo vuelva a tener calma y sentido." },
+        { date: "Estrella VI • El Presente", title: "Todo lo que construimos", text: "Miro hacia atrás y me emociona todo lo que hemos crecido juntos, paso a paso, siempre cuidándonos." },
+        { date: "Estrella VII • El Futuro", title: "Lo que aún nos espera", text: "Esta constelación apenas empieza. Quiero seguir llenando este cielo de viajes, metas y noches junto a ti. Te amo." }
+      ]
+    };
+
+    // Cargar datos desde la URL si alguien abrió un enlace personalizado (?d=...)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('d')) {
+      try {
+        const decoded = decodeURIComponent(escape(atob(urlParams.get('d'))));
+        const parsed = JSON.parse(decoded);
+        CONFIG = { ...CONFIG, ...parsed };
+      } catch (e) {
+        console.warn("No se pudo decodificar la configuración de la URL", e);
+      }
+    }
+
+    // ==========================================
+    // 2. SINTETIZADOR DE AUDIO (Web Audio API)
+    // ==========================================
+    let audioCtx = null;
+    const pentatonicFreqs = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50, 1174.66]; // Do mayor pentatónica
+
+    function playStarChime(index = 0) {
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(pentatonicFreqs[index % pentatonicFreqs.length], now);
+
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.exponentialRampToValueAtTime(0.12, now + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 1.85);
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 3. ESCENA THREE.JS
+    // ==========================================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x04050d, 0.008);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const defaultCamPos = new THREE.Vector3(0, 2, 34);
+    camera.position.copy(defaultCamPos);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 8;
+    controls.maxDistance = 65;
+
+    // Textura circular suave generada por Canvas (sin archivos externos)
+    function createGlowTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 128;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.2, 'rgba(255,255,255,0.85)');
+      grad.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 128, 128);
+      return new THREE.CanvasTexture(canvas);
+    }
+    const glowTex = createGlowTexture();
+
+    // Estrellas de fondo (Campo profundo)
+    const bgStarsGeo = new THREE.BufferGeometry();
+    const bgCount = 2800;
+    const bgPositions = new Float32Array(bgCount * 3);
+    for (let i = 0; i < bgCount * 3; i++) {
+      bgPositions[i] = (Math.random() - 0.5) * 180;
+    }
+    bgStarsGeo.setAttribute('position', new THREE.BufferAttribute(bgPositions, 3));
+    const bgStarsMat = new THREE.PointsMaterial({
+      color: 0xffffff,
+      size: 0.45,
+      map: glowTex,
+      transparent: true,
+      opacity: 0.75,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const bgStars = new THREE.Points(bgStarsGeo, bgStarsMat);
+    scene.add(bgStars);
+
+    // Polvo de Nebulosa
+    const nebulaGeo = new THREE.BufferGeometry();
+    const nebCount = 120;
+    const nebPos = new Float32Array(nebCount * 3);
+    for (let i = 0; i < nebCount; i++) {
+      nebPos[i * 3] = (Math.random() - 0.5) * 45;
+      nebPos[i * 3 + 1] = (Math.random() - 0.5) * 30;
+      nebPos[i * 3 + 2] = (Math.random() - 0.5) * 20 - 8;
+    }
+    nebulaGeo.setAttribute('position', new THREE.BufferAttribute(nebPos, 3));
+    const nebulaMat = new THREE.PointsMaterial({
+      color: new THREE.Color(CONFIG.nebulaColor),
+      size: 16,
+      map: glowTex,
+      transparent: true,
+      opacity: 0.14,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const nebula = new THREE.Points(nebulaGeo, nebulaMat);
+    scene.add(nebula);
+
+    // ==========================================
+    // 4. CONSTELACIÓN PRINCIPAL (Corazón 3D)
+    // ==========================================
+    // Coordenadas en 3D formando un corazón armonioso
+    const heartCoords = [
+      new THREE.Vector3(0, -7.5, 0.8),    // Punta inferior
+      new THREE.Vector3(-6.8, -1.2, -0.6), // Lado izquierdo bajo
+      new THREE.Vector3(-8.2, 5.2, 0.9),   // Lóbulo izquierdo alto
+      new THREE.Vector3(-3.2, 8.2, -0.4),  // Cima izquierda
+      new THREE.Vector3(0, 4.5, 1.2),      // Centro superior (hendidura)
+      new THREE.Vector3(3.2, 8.2, -0.4),   // Cima derecha
+      new THREE.Vector3(8.2, 5.2, 0.9),    // Lóbulo derecho alto
+      new THREE.Vector3(6.8, -1.2, -0.6)   // Lado derecho bajo
+    ];
+
+    const constellationGroup = new THREE.Group();
+    scene.add(constellationGroup);
+
+    let starMeshes = [];
+    let constellationLines = null;
+
+    function buildConstellation() {
+      // Limpiar anterior si se edita
+      while (constellationGroup.children.length > 0) {
+        constellationGroup.remove(constellationGroup.children[0]);
+      }
+      starMeshes = [];
+
+      document.getElementById('ui-constellation-name').textContent = CONFIG.title;
+      document.getElementById('ui-subtitle').textContent = CONFIG.subtitle;
+      nebulaMat.color.set(CONFIG.nebulaColor);
+
+      const starColorObj = new THREE.Color(CONFIG.starColor);
+      const count = CONFIG.stars.length;
+      const activePoints = [];
+
+      for (let i = 0; i < count; i++) {
+        // Distribuir sobre la forma de corazón
+        const coordIndex = Math.floor((i / count) * heartCoords.length);
+        const pos = heartCoords[coordIndex % heartCoords.length].clone();
+
+        // Núcleo brillante
+        const coreGeo = new THREE.SphereGeometry(0.38, 16, 16);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const starMesh = new THREE.Mesh(coreGeo, coreMat);
+        starMesh.position.copy(pos);
+        starMesh.userData = { index: i };
+
+        // Halo luminoso (Sprite)
+        const spriteMat = new THREE.SpriteMaterial({
+          map: glowTex,
+          color: starColorObj,
+          transparent: true,
+          blending: THREE.AdditiveBlending,
+          opacity: 0.95
+        });
+        const halo = new THREE.Sprite(spriteMat);
+        halo.scale.set(3.2, 3.2, 1);
+        starMesh.add(halo);
+        starMesh.userData.halo = halo;
+
+        // Hitbox invisible más grande para facilitar el clic en móvil
+        const hitGeo = new THREE.SphereGeometry(1.15, 8, 8);
+        const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+        const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+        hitMesh.userData = { index: i };
+        starMesh.add(hitMesh);
+
+        constellationGroup.add(starMesh);
+        starMeshes.push(hitMesh);
+        activePoints.push(pos);
+      }
+
+      // Cerrar el ciclo de líneas de la constelación
+      if (activePoints.length > 1) {
+        const linePoints = [...activePoints, activePoints[0]];
+        const lineGeo = new THREE.BufferGeometry().setFromPoints(linePoints);
+        const lineMat = new THREE.LineBasicMaterial({
+          color: starColorObj,
+          transparent: true,
+          opacity: 0.45
+        });
+        constellationLines = new THREE.Line(lineGeo, lineMat);
+        constellationGroup.add(constellationLines);
+      }
+    }
+
+    buildConstellation();
+
+    // ==========================================
+    // 5. INTERACCIÓN Y ANIMACIÓN DE CÁMARA
+    // ==========================================
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let selectedIndex = -1;
+    let targetCamPos = defaultCamPos.clone();
+    let targetLookAt = new THREE.Vector3(0, 0, 0);
+    let isCameraAnimating = false;
+    let tourInterval = null;
+
+    function selectStar(index) {
+      if (index < 0 || index >= CONFIG.stars.length) return;
+      selectedIndex = index;
+      const data = CONFIG.stars[index];
+      const starObj = starMeshes[index].parent;
+
+      playStarChime(index);
+
+      // Actualizar tarjeta UI
+      document.getElementById('card-date').textContent = data.date;
+      document.getElementById('card-title').textContent = data.title;
+      document.getElementById('card-text').textContent = data.text;
+      document.getElementById('card-counter').textContent = `${index + 1} / ${CONFIG.stars.length}`;
+      document.getElementById('memory-card').classList.add('active');
+
+      // Calcular posición de cámara enfocando la estrella (ligeramente desplazada a la izquierda para no taparla con la tarjeta)
+      const worldPos = new THREE.Vector3();
+      starObj.getWorldPosition(worldPos);
+      targetLookAt.copy(worldPos).add(new THREE.Vector3(1.8, 0, 0));
+      targetCamPos.copy(worldPos).add(new THREE.Vector3(1.8, 0.8, 12));
+      isCameraAnimating = true;
+    }
+
+    function resetView() {
+      stopTour();
+      selectedIndex = -1;
+      document.getElementById('memory-card').classList.remove('active');
+      targetLookAt.set(0, 0, 0);
+      targetCamPos.copy(defaultCamPos);
+      isCameraAnimating = true;
+    }
+
+    function stopTour() {
+      if (tourInterval) {
+        clearInterval(tourInterval);
+        tourInterval = null;
+        document.getElementById('btn-tour').textContent = "▶ Recorrido";
+      }
+    }
+
+    // Eventos de ratón / toque
+    window.addEventListener('pointermove', (e) => {
+      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(starMeshes);
+      document.body.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
+    });
+
+    window.addEventListener('click', (e) => {
+      if (e.target.closest('.memory-card, .bottom-bar, .customizer-panel, .edit-toggle')) return;
+
+      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+      const intersects = raycaster.intersectObjects(starMeshes);
+      if (intersects.length > 0) {
+        stopTour();
+        const idx = intersects[0].object.userData.index;
+        selectStar(idx);
+      }
+    });
+
+    controls.addEventListener('start', () => {
+      isCameraAnimating = false;
+    });
+
+    // Botones UI
+    document.getElementById('btn-close-card').addEventListener('click', resetView);
+    document.getElementById('btn-reset-cam').addEventListener('click', resetView);
+    document.getElementById('btn-prev-star').addEventListener('click', () => {
+      stopTour();
+      const prev = (selectedIndex - 1 + CONFIG.stars.length) % CONFIG.stars.length;
+      selectStar(prev);
+    });
+    document.getElementById('btn-next-star').addEventListener('click', () => {
+      stopTour();
+      const next = (selectedIndex + 1) % CONFIG.stars.length;
+      selectStar(next);
+    });
+
+    document.getElementById('btn-tour').addEventListener('click', () => {
+      if (tourInterval) {
+        stopTour();
+      } else {
+        let current = selectedIndex >= 0 ? selectedIndex : 0;
+        selectStar(current);
+        document.getElementById('btn-tour').textContent = "⏸ Pausar";
+        tourInterval = setInterval(() => {
+          current = (current + 1) % CONFIG.stars.length;
+          selectStar(current);
+        }, 5500);
+      }
+    });
+
+    // ==========================================
+    // 6. PANEL PERSONALIZADOR EN VIVO
+    // ==========================================
+    const editorPanel = document.getElementById('editor-panel');
+    document.getElementById('btn-toggle-editor').addEventListener('click', () => {
+      editorPanel.classList.toggle('open');
+      if (editorPanel.classList.contains('open')) populateEditor();
+    });
+
+    function populateEditor() {
+      document.getElementById('inp-title').value = CONFIG.title;
+      document.getElementById('inp-subtitle').value = CONFIG.subtitle;
+      document.getElementById('inp-star-color').value = CONFIG.starColor;
+      document.getElementById('inp-nebula-color').value = CONFIG.nebulaColor;
+
+      const list = document.getElementById('stars-editor-list');
+      list.innerHTML = '';
+      CONFIG.stars.forEach((s, i) => {
+        const div = document.createElement('div');
+        div.className = 'star-editor-item';
+        div.innerHTML = `
+          <div class="field-group"><label>Estrella ${i + 1} - Fecha/Etiqueta</label><input type="text" data-idx="${i}" data-field="date" value="${s.date}"></div>
+          <div class="field-group"><label>Título</label><input type="text" data-idx="${i}" data-field="title" value="${s.title}"></div>
+          <div class="field-group" style="margin-bottom:0;"><label>Mensaje</label><textarea rows="2" data-idx="${i}" data-field="text">${s.text}</textarea></div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    document.getElementById('btn-apply-changes').addEventListener('click', () => {
+      CONFIG.title = document.getElementById('inp-title').value;
+      CONFIG.subtitle = document.getElementById('inp-subtitle').value;
+      CONFIG.starColor = document.getElementById('inp-star-color').value;
+      CONFIG.nebulaColor = document.getElementById('inp-nebula-color').value;
+
+      document.querySelectorAll('#stars-editor-list input, #stars-editor-list textarea').forEach(el => {
+        const idx = parseInt(el.dataset.idx);
+        const field = el.dataset.field;
+        CONFIG.stars[idx][field] = el.value;
+      });
+
+      buildConstellation();
+
+      // Codificar en Base64 en la URL para compartir
+      const jsonStr = JSON.stringify(CONFIG);
+      const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+      const shareUrl = `${window.location.origin}${window.location.pathname}?d=${encoded}`;
+      document.getElementById('share-url-output').value = shareUrl;
+    });
+
+    document.getElementById('btn-copy-url').addEventListener('click', () => {
+      const out = document.getElementById('share-url-output');
+      if (!out.value) return;
+      out.select();
+      navigator.clipboard.writeText(out.value);
+      document.getElementById('btn-copy-url').textContent = "¡Copiado!";
+      setTimeout(() => document.getElementById('btn-copy-url').textContent = "Copiar", 2000);
+    });
+
+    // ==========================================
+    // 7. LOOP PRINCIPAL DE RENDERIZADO
+    // ==========================================
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsed = clock.getElapsedTime();
+
+      // Rotación sutil del fondo estelar y respiración de la constelación
+      bgStars.rotation.y = elapsed * 0.012;
+      nebula.rotation.z = elapsed * 0.008;
+      constellationGroup.position.y = Math.sin(elapsed * 0.8) * 0.35;
+
+      // Pulso en las estrellas principales
+      starMeshes.forEach((hitMesh, idx) => {
+        const star = hitMesh.parent;
+        const halo = star.userData.halo;
+        const isSelected = idx === selectedIndex;
+        const baseScale = isSelected ? 4.8 : 3.0;
+        const pulse = Math.sin(elapsed * 3 + idx) * 0.35;
+        halo.scale.set(baseScale + pulse, baseScale + pulse, 1);
+      });
+
+      // Interpolación suave de cámara
+      if (isCameraAnimating) {
+        camera.position.lerp(targetCamPos, 0.05);
+        controls.target.lerp(targetLookAt, 0.06);
+        if (camera.position.distanceTo(targetCamPos) < 0.08) {
+          isCameraAnimating = false;
+        }
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>
